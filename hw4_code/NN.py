@@ -94,8 +94,14 @@ class dlnet:
 
         '''
         # TODO: IMPLEMENT THIS METHOD
+        #print(u)
+        #print(alpha)
+        u_lRelu = np.copy(u)
+        #print(u_lRelu[u_lRelu <= 0 ])
+        u_lRelu[u_lRelu <= 0 ] *= alpha
+        #print(u_lRelu[u_lRelu <= 0 ])
+        return u_lRelu
         
-        raise NotImplementedError
         
 
     def Tanh(self, u):
@@ -113,7 +119,9 @@ class dlnet:
         '''
         # TODO: IMPLEMENT THIS METHOD
         
-        raise NotImplementedError
+        u_Tanh = np.copy(u)
+        u_Tanh = (np.exp(u_Tanh) - np.exp(-1*u_Tanh)) / (np.exp(u_Tanh) + np.exp(-1*u_Tanh))
+        return u_Tanh    
     
     
     def dL_Relu(self,alpha, u):
@@ -147,8 +155,10 @@ class dlnet:
         '''
         
         # TODO: IMPLEMENT THIS METHOD
-
-        raise NotImplementedError
+        N = y.shape[1]
+        y_sqr_substraction = np.square(y - yh)
+        MSE= (1/(2*N)) * np.sum(y_sqr_substraction)
+        return MSE
 
     @staticmethod
     def _dropout(u, prob):
@@ -163,9 +173,20 @@ class dlnet:
               use np.random.choice to sample from Bernoulli(prob) the inactivated nodes for each iteration  
         '''
         # TODO: IMPLEMENT THIS METHOD
+        D = u.shape[0]
+        N = u.shape[1]
+        #print(D, N)
+        #print(np.arange(2))
+        #print(prob)
+        prob_arr = np.array([prob, 1 - prob])
+        #print(prob_arr)
         
-        raise NotImplementedError
-
+        dropout_mask = np.random.choice(2, (D, N), True, prob_arr)
+        scaling_factor = 1 / (1 - prob)
+        u_after_dropout = (u * dropout_mask) * scaling_factor
+        #print(u_after_dropout)
+        return u_after_dropout, dropout_mask
+        
 
 
     def forward(self, x, use_dropout):
@@ -180,19 +201,21 @@ class dlnet:
         return: o2 1xN
         '''  
         self.ch['X'] = x #keep
-        
+        #print(x)
+        #print(self.param)
+
         # TODO: IMPLEMENT THIS METHOD
-        u1 = None # IMPLEMENT THIS LINE
-        o1 = None # IMPLEMENT THIS LINE
+        u1 = self.param['theta1']@self.ch['X'] + self.param['b1']# IMPLEMENT THIS LINE
+        o1 = self.Leaky_Relu(self.alpha, u1) # IMPLEMENT THIS LINE
 
         if use_dropout: #keep
-            o1, dropout_mask = None # IMPLEMENT THIS LINE
+            o1, dropout_mask = self._dropout(o1, self.dropout_prob) # IMPLEMENT THIS LINE
             self.ch['u1'], self.ch['mask'], self.ch['o1'] = u1, dropout_mask, o1 #keep
         else: #keep
             self.ch['u1'], self.ch['o1'] = u1, o1 #keep
 
-        u2 = None # IMPLEMENT THIS LINE
-        o2 = None # IMPLEMENT THIS LINE
+        u2 = self.param['theta2']@o1 + self.param['b2'] # IMPLEMENT THIS LINE
+        o2 = self.Tanh(u2) # IMPLEMENT THIS LINE
         self.ch['u2'], self.ch['o2'] = u2, o2 #keep
 
         return o2 #keep
@@ -301,11 +324,11 @@ class dlnet:
         # for i in ....:
 
 
-            # Print every one iteration for local test, and every 1000th iteration for AG and 1.2
-            print_multiple = 1 if local_test else 1000 #keep
-            if i % print_multiple == 0: #keep
-                print ("Loss after iteration %i: %f" %(i, loss)) #keep 
-                self.loss.append(loss) #keep
+        # Print every one iteration for local test, and every 1000th iteration for AG and 1.2
+        print_multiple = 1 if local_test else 1000 #keep
+        if i % print_multiple == 0: #keep
+            print ("Loss after iteration %i: %f" %(i, loss)) #keep 
+            self.loss.append(loss) #keep
        
     
     #bonus for undergraduate students 
@@ -352,12 +375,12 @@ class dlnet:
         # for i in ....:
 
 
-            # Print every one iteration for local test, and every 1000th iteration for AG and 1.3
-            print_multiple = 1 if local_test else 1000 #keep
-            if i % print_multiple == 0: #keep
-                print ("Loss after iteration %i: %f" %(i, loss)) #keep
-                self.loss.append(loss) #keep
-                self.batch_y.append(y_batch) #keep
+        # Print every one iteration for local test, and every 1000th iteration for AG and 1.3
+        print_multiple = 1 if local_test else 1000 #keep
+        if i % print_multiple == 0: #keep
+            print ("Loss after iteration %i: %f" %(i, loss)) #keep
+            self.loss.append(loss) #keep
+            self.batch_y.append(y_batch) #keep
 
 
     def predict(self, x): 
