@@ -239,24 +239,38 @@ class dlnet:
         by N. Make sure you avoid cascading divisions by N where you might accidentally divide your 
         derivative by N^2 or greater.
         '''
-       # TODO: IMPLEMENT THIS METHOD
-
-        dLoss_o2 = None # IMPLEMENT THIS LINE
-        dLoss_u2 = None # IMPLEMENT THIS LINE
-        dLoss_theta2 = None # IMPLEMENT THIS LINE
-        dLoss_b2 = None # IMPLEMENT THIS LINE
-        dLoss_o1 = None # IMPLEMENT THIS LINE
-        
+        # TODO: IMPLEMENT THIS METHOD
+        #print(self.ch)
+        N = y.shape[1]
+        dLoss_o2 =  self.ch['o2'] - y   # IMPLEMENT THIS LINE
+        dLoss_u2 = dLoss_o2*self.dTanh(self.ch['u2']) # IMPLEMENT THIS LINE
+        dLoss_theta2 = (dLoss_u2 @ np.transpose(self.ch['o1'])) / N # IMPLEMENT THIS LINE
+        dLoss_b2 = (dLoss_u2 @ np.ones((N, 1))) / N # IMPLEMENT THIS LINE
+        dLoss_o1 = np.transpose(self.param['theta2'])@dLoss_u2 # IMPLEMENT THIS LINE
+        #print(dLoss_o2.shape)
+        #print(dLoss_u2.shape)
+        #print(dLoss_theta2.shape)
+        #print(dLoss_b2.shape)
+        #print(dLoss_o1.shape)
         if use_dropout:
-            dLoss_u1 = None # IMPLEMENT THIS LINE
+            dLoss_u1 = (dLoss_o1 * self.ch['mask'] * self.dL_Relu(self.alpha, self.ch['u1'])) / (1 - self.dropout_prob)
         else:
-            dLoss_u1 = None # IMPLEMENT THIS LINE
 
+            dLoss_u1 = dLoss_o1 * self.dL_Relu(self.alpha, self.ch['u1']) # IMPLEMENT THIS LINE
 
-        dLoss_theta1 = None # IMPLEMENT THIS LINE
-        dLoss_b1 = None # IMPLEMENT THIS LINE
+        
+        dLoss_theta1 = (dLoss_u1 @ np.transpose(self.ch['X'])) / N # IMPLEMENT THIS LINE
+        dLoss_b1 = dLoss_u1 @ np.ones((N, 1)) / N # IMPLEMENT THIS LINE
+        
+        
+        #print(dLoss_u1.shape)
+        #print(dLoss_theta1.shape)
+        #print(dLoss_b1.shape)
+        
+        
         
         dLoss = {'theta1': dLoss_theta1, 'b1': dLoss_b1, 'theta2': dLoss_theta2, 'b2': dLoss_b2}
+        #print('my_Vals: ', dLoss)
         return dLoss
 
 
@@ -275,12 +289,23 @@ class dlnet:
               momentum records are kept in self.change
         '''
         # TODO: IMPLEMENT THIS METHOD
+        #print(dLoss)
+        #print('Initial params: ', self.param)
+        #print(self.lr)
+        #print(self.momentum)
+        #print('-----------\n', self.change)
 
         for layer in dLoss:
             if use_momentum:
-                continue # IMPLEMENT THIS LINE
+                self.change[layer] = self.momentum*self.change[layer] + dLoss[layer]
+                self.param[layer] = self.param[layer] - self.lr*self.change[layer]
             else:
-                continue # IMPLEMENT THIS LINE
+                #print(layer)
+
+                self.param[layer] = self.param[layer] - self.lr*dLoss[layer]
+                
+        
+        #print('Final params: ', self.param)
 
     def backward(self, y, yh, use_dropout, use_momentum):
         '''
@@ -297,8 +322,15 @@ class dlnet:
         Hint: make calls to compute_gradients and update_weights
         '''    
         # TODO: IMPLEMENT THIS METHOD
+
+        dLoss = self.compute_gradients(y, yh, use_dropout)
+        self.update_weights(dLoss, use_momentum)
         
-        raise NotImplementedError
+        dLoss_theta2 = dLoss['theta2']
+        dLoss_b2 = dLoss['b2']
+        dLoss_theta1 = dLoss['theta1']
+        dLoss_b1 = dLoss['b1']
+        return dLoss_theta2, dLoss_b2, dLoss_theta1, dLoss_b1
 
 
     def gradient_descent(self, x, y, iter = 60000, use_momentum=False, local_test=False):
@@ -319,16 +351,19 @@ class dlnet:
         
         # TODO: IMPLEMENT THIS METHOD
         
-        raise NotImplementedError
+       
 
-        # for i in ....:
+        for i in range(iter):
+            yh = self.forward(x, self.use_dropout)
+            dLoss_theta2, dLoss_b2, dLoss_theta1, dLoss_b1 = self.backward(y, yh, self.use_dropout, use_momentum)
 
+            loss = self.nloss(y,yh)
 
-        # Print every one iteration for local test, and every 1000th iteration for AG and 1.2
-        print_multiple = 1 if local_test else 1000 #keep
-        if i % print_multiple == 0: #keep
-            print ("Loss after iteration %i: %f" %(i, loss)) #keep 
-            self.loss.append(loss) #keep
+            # Print every one iteration for local test, and every 1000th iteration for AG and 1.2
+            print_multiple = 1 if local_test else 1000 #keep
+            if i % print_multiple == 0: #keep
+                print ("Loss after iteration %i: %f" %(i, loss)) #keep 
+                self.loss.append(loss) #keep
        
     
     #bonus for undergraduate students 
@@ -369,18 +404,30 @@ class dlnet:
         self.nInit() #keep
         
         # TODO: IMPLEMENT THIS METHOD
-        
-        raise NotImplementedError
+        N = x.shape[1]
+        #print(self.batch_size)
+        for i in range(iter):
+            init_i = (i * self.batch_size) % N
+            final_i = (init_i + self.batch_size) % N
 
-        # for i in ....:
+            if final_i < init_i:
+                x_batch = np.hstack((x[:, init_i:], x[:, :final_i]))
+                y_batch = np.hstack((y[:, init_i:], y[:, :final_i]))
+            else:
+                x_batch = x[:, init_i:final_i]
+                y_batch = y[:, init_i:final_i]
+            
+            yh_batch = self.forward(x_batch, self.use_dropout)
+            dLoss_theta2, dLoss_b2, dLoss_theta1, dLoss_b1 = self.backward(y_batch,yh_batch, self.use_dropout, use_momentum)
 
+            loss = self.nloss(y_batch, yh_batch)
 
-        # Print every one iteration for local test, and every 1000th iteration for AG and 1.3
-        print_multiple = 1 if local_test else 1000 #keep
-        if i % print_multiple == 0: #keep
-            print ("Loss after iteration %i: %f" %(i, loss)) #keep
-            self.loss.append(loss) #keep
-            self.batch_y.append(y_batch) #keep
+            # Print every one iteration for local test, and every 1000th iteration for AG and 1.3
+            print_multiple = 1 if local_test else 1000 #keep
+            if i % print_multiple == 0: #keep
+                print ("Loss after iteration %i: %f" %(i, loss)) #keep
+                self.loss.append(loss) #keep
+                self.batch_y.append(y_batch) #keep
 
 
     def predict(self, x): 
